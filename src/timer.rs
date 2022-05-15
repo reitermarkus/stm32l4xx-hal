@@ -95,7 +95,7 @@ macro_rules! hal {
                 where
                     T: Into<Hertz>,
                 {
-                    self.pause();
+                    self.disable();
 
                     self.timeout = timeout.into();
                     let ticks = self.clock / self.timeout; // TODO check pclk that timer is on
@@ -133,7 +133,7 @@ macro_rules! hal {
                 type Error = Infallible;
 
                 fn cancel(&mut self) -> Result<(), Self::Error> {
-                    self.pause();
+                    self.disable();
                     self.reset();
 
                     Ok(())
@@ -250,29 +250,39 @@ macro_rules! hal {
                 }
 
                 /// Clear the update interrupt flag.
+                #[inline]
                 pub fn clear_update_interrupt_flag(&mut self) {
                     self.tim.sr.modify(|_, w| w.uif().clear_bit());
                 }
 
                 /// Get the count of the timer.
+                #[inline]
                 pub fn count() -> $width {
                     let cnt = unsafe { (*$TIM::ptr()).cnt.read() };
                     cnt.cnt().bits()
                 }
 
-                /// Pause the counter.
-                pub fn pause(&mut self) {
+                /// Disable the timer.
+                #[inline]
+                pub fn disable(&mut self) {
                     self.tim.cr1.modify(|_, w| w.cen().clear_bit());
                 }
 
                 /// Reset the counter.
+                #[inline]
                 pub fn reset(&mut self) {
                     self.tim.cnt.modify(|_, w| unsafe { w.bits(0) });
                 }
 
+                /// Enable the timer.
+                #[inline]
+                pub fn enable(&mut self) {
+                  self.tim.cr1.modify(|_, w| w.cen().set_bit());
+                }
+
                 /// Releases the TIM peripheral.
                 pub fn free(mut self) -> $TIM {
-                    self.pause();
+                    self.disable();
                     self.tim
                 }
             }
