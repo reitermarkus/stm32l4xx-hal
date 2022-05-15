@@ -841,8 +841,7 @@ macro_rules! hal {
 
 impl<USART, PINS> From<(Tx<USART, PINS>, Rx<USART, PINS>)> for Serial<USART, PINS> {
     /// Convert a transmitter/receiver back to a combined serial port.
-    fn from(txrx: (Tx<USART, PINS>, Rx<USART, PINS>)) -> Self {
-        let (tx, rx) = txrx;
+    fn from((tx, rx): (Tx<USART, PINS>, Rx<USART, PINS>)) -> Self {
         Self { tx, rx }
     }
 }
