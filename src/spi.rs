@@ -74,13 +74,13 @@ macro_rules! hal {
                 /// Enable the SPI peripheral.
                 #[allow(unused)] // Only used for DMA.
                 #[inline]
-                fn enable(&mut self) {
+                pub fn enable(&mut self) {
                     self.spi.cr1.modify(|_, w| w.spe().set_bit());
                 }
 
                 /// Disable the SPI peripheral.
                 #[inline]
-                fn disable(&mut self) {
+                pub fn disable(&mut self) {
                     self.spi.cr1.modify(|_, w| w.spe().clear_bit());
                 }
             }
