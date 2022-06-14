@@ -265,14 +265,6 @@ fn clear_static_data_flags(icr: &sdmmc1::ICR) {
     })
 }
 
-#[inline]
-fn clear_all_interrupts(icr: &sdmmc1::ICR) {
-    clear_static_command_flags(icr);
-    clear_static_data_flags(icr);
-
-    icr.modify(|_, w| w.sdioitc().set_bit());
-}
-
 /// An initialized SD card.
 #[derive(Default)]
 pub struct SdCard {
