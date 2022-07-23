@@ -1043,7 +1043,7 @@ impl SdmmcDma {
     }
 
     #[inline]
-    pub fn split(mut self) -> (Sdmmc, dma2::C5) {
+    pub fn split(self) -> (Sdmmc, dma2::C5) {
         (self.sdmmc, self.channel)
     }
 
