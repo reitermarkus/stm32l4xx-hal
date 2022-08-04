@@ -206,9 +206,7 @@ impl Rtc {
     ///
     /// This must be called after a system reset or after waking up from low-power mode.
     pub fn wait_for_sync(&self) {
-        self.rtc.isr.modify(|r, w| {
-          w.rsf().clear_bit()
-        });
+        self.rtc.isr.modify(|r, w| w.rsf().clear_bit());
 
         while self.rtc.isr.read().rsf().bit_is_clear() {}
     }
