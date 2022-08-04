@@ -92,6 +92,7 @@ impl<MODE> Interruptable for Input<MODE> {}
 pub trait ExtiPin {
     fn make_interrupt_source(&mut self, syscfg: &mut SYSCFG, apb2: &mut APB2);
     fn trigger_on_edge(&mut self, exti: &mut EXTI, level: Edge);
+    fn interrupt_enabled(&self, exti: &EXTI) -> bool;
     fn enable_interrupt(&mut self, exti: &mut EXTI);
     fn disable_interrupt(&mut self, exti: &mut EXTI);
     fn clear_interrupt_pending_bit(&mut self);
@@ -162,6 +163,11 @@ where
                     .modify(|r, w| unsafe { w.bits(r.bits() | (1 << i)) });
             }
         }
+    }
+
+    /// Check if external interrupts for this pin are enabled.
+    fn interrupt_enabled(&self, exti: &EXTI) -> bool {
+        exti.imr1.read().bits() & (1 << self.pin_id()) != 0
     }
 
     /// Enable external interrupts from this pin.
