@@ -20,7 +20,6 @@ use crate::{
     pac::{self, ADC1},
     rcc::{Enable, Reset, AHB2, CCIPR},
     signature::{VrefCal, VtempCalHigh, VtempCalLow, VDDA_CALIB_MV},
-    tsc::SamplePin,
 };
 
 /// Internal voltage reference channel, used for calibration.
