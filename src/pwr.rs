@@ -36,6 +36,37 @@ bitfield! {
   pub internal_wkup, set_internal_wkup: 15;
 }
 
+enum LowPowerMode {
+  Stop0    = 0b000,
+  Stop1    = 0b001,
+  Stop2    = 0b010,
+  Standby  = 0b011,
+  Shutdown = 0b100, // 0b1xx
+}
+
+#[must_use = "`wait_for_interrupt` or `wait_for_event` must be called to enter low-power mode."]
+pub struct LowPowerModeGuard {
+  _0: ()
+}
+
+impl LowPowerModeGuard {
+  /// Wait for an interrupt. Must not be called from within a critical section.
+  #[inline]
+  pub fn wait_for_interrupt(self) {
+    cortex_m::asm::dsb();
+    cortex_m::asm::wfi();
+  }
+
+  /// Wait for an event. Must not be called from within a critical section.
+  #[inline]
+  pub fn wait_for_event(self) {
+    cortex_m::asm::dsb();
+    cortex_m::asm::sev();
+    cortex_m::asm::wfe();
+    cortex_m::asm::wfe();
+  }
+}
+
 pub struct Pwr {
     pub cr1: CR1,
     pub cr2: CR2,
@@ -84,8 +115,21 @@ impl Pwr {
         }
     }
 
-    /// Enters 'Shutdown' low power mode.
-    pub fn shutdown(&mut self, wkup: &WakeUpSource, scb: &mut SCB) -> ! {
+    #[inline]
+    fn enter_low_power_mode(&mut self, mode: LowPowerMode, scb: &mut SCB) -> LowPowerModeGuard {
+        unsafe { self.cr1.reg().modify(|_, w| w.lpms().bits(mode as u8)) };
+        scb.set_sleepdeep();
+
+        LowPowerModeGuard { _0: () }
+    }
+
+    /// Enter “Stop 2” low power mode.
+    pub fn stop2(&mut self, scb: &mut SCB) -> LowPowerModeGuard {
+      self.enter_low_power_mode(LowPowerMode::Stop2, scb)
+    }
+
+    /// Enters “Shutdown” low power mode.
+    pub fn shutdown(&mut self, wkup: &WakeUpSource, scb: &mut SCB) -> LowPowerModeGuard {
         unsafe {
             self.cr3.reg().modify(|_, w| w.bits(wkup.bit_range(0, 7)));
         }
@@ -94,7 +138,6 @@ impl Pwr {
             // Can't apply directly due to the APC and RPS bits
             self.cr3.reg().modify(|_, w| w.ewf().set_bit())
         }
-        scb.set_sleepdeep();
         self.scr.reg().write(|w| {
             w.wuf1()
                 .set_bit()
@@ -109,10 +152,8 @@ impl Pwr {
                 .sbf()
                 .set_bit()
         });
-        unsafe { self.cr1.reg().modify(|_, w| w.lpms().bits(0b111)) };
-        cortex_m::asm::dsb();
-        cortex_m::asm::wfi();
-        loop {}
+
+        self.enter_low_power_mode(LowPowerMode::Shutdown, scb)
     }
 
     /// Returns the reason, why wakeup from shutdown happened. In case there is more then one,

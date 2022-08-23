@@ -90,6 +90,7 @@ impl RccExt for RCC {
                 sysclk: None,
                 pll_source: None,
                 pll_config: None,
+                stop_wakeup_clock_source: None,
             },
         }
     }
@@ -367,6 +368,20 @@ pub enum ClockSecuritySystem {
     Disable,
 }
 
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum StopWakeupClockSource {
+  /// MSI
+  Msi = 0,
+  /// HSI16
+  Hsi = 1,
+}
+
+impl Default for StopWakeupClockSource {
+    fn default() -> Self {
+        Self::Msi
+    }
+}
+
 const HSI: u32 = 16_000_000; // Hz
 
 /// Clock configuration
@@ -382,6 +397,7 @@ pub struct CFGR {
     pll_source: Option<PllSource>,
     pll_config: Option<PllConfig>,
     clk48_source: Option<Clk48Source>,
+    stop_wakeup_clock_source: Option<StopWakeupClockSource>,
 }
 
 impl CFGR {
@@ -455,6 +471,11 @@ impl CFGR {
     pub fn clk48_source(mut self, source: Clk48Source) -> Self {
         self.clk48_source = Some(source);
         self
+    }
+
+    pub fn stop_wakeup_clock_source(mut self, source: StopWakeupClockSource) -> Self {
+      self.stop_wakeup_clock_source = Some(source);
+      self
     }
 
     /// Freezes the clock configuration, making it effective
@@ -537,7 +558,7 @@ impl CFGR {
 
         // If HSE is available, set it up
         if let Some(hse_cfg) = &self.hse {
-            rcc.cr.write(|w| {
+            rcc.cr.modify(|_, w| {
                 w.hseon().set_bit();
 
                 if hse_cfg.bypass == CrystalBypass::Enable {
@@ -655,9 +676,15 @@ impl CFGR {
             }
         };
 
+        let stop_wakeup_clock_source = self.stop_wakeup_clock_source.unwrap_or_default();
+
+        if stop_wakeup_clock_source == StopWakeupClockSource::Hsi {
+          rcc.cfgr.modify(|_, w| w.stopwuck().set_bit())
+        }
+
         // Check if HSI should be started
-        if pll_source == PllSource::HSI16 || (self.msi.is_none() && self.hse.is_none()) {
-            rcc.cr.write(|w| w.hsion().set_bit());
+        if pll_source == PllSource::HSI16 || stop_wakeup_clock_source == StopWakeupClockSource::Hsi || (self.msi.is_none() && self.hse.is_none()) {
+            rcc.cr.modify(|_, w| w.hsion().set_bit());
             while rcc.cr.read().hsirdy().bit_is_clear() {}
         }
 
