@@ -2,6 +2,10 @@
 //! [stm32h7xx-hal](https://github.com/stm32-rs/stm32h7xx-hal) implementation,
 //! as of 2021-02-25.
 
+use core::{fmt, ops::Deref};
+
+use cast::{u16, u8};
+
 use crate::hal::blocking::i2c::{Read, Write, WriteRead};
 
 #[cfg(any(
@@ -24,8 +28,6 @@ use crate::pac::{i2c1, I2C1, I2C2, I2C3};
 
 use crate::rcc::{Clocks, Enable, RccBus, Reset};
 use crate::time::Hertz;
-use cast::{u16, u8};
-use core::ops::Deref;
 
 /// I2C error
 #[non_exhaustive]
@@ -41,6 +43,16 @@ pub enum Error {
     // Pec, // SMBUS mode only
     // Timeout, // SMBUS mode only
     // Alert, // SMBUS mode only
+}
+
+impl fmt::Display for Error {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    match self {
+      Self::Bus => "bus error",
+      Self::Arbitration => "arbitration loss",
+      Self::Nack => "not acknowledged",
+    }.fmt(f)
+  }
 }
 
 #[doc(hidden)]
@@ -68,6 +80,7 @@ macro_rules! pins {
 }
 
 /// I2C peripheral operating in master mode
+#[derive(Debug)]
 pub struct I2c<I2C, PINS> {
     i2c: I2C,
     pins: PINS,
