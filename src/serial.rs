@@ -72,6 +72,17 @@ pub enum Error {
     Parity,
 }
 
+impl fmt::Display for Error {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+      match self {
+        Self::Framing => "framing error",
+        Self::Noise => "noise error",
+        Self::Overrun => "buffer overrun",
+        Self::Parity => "parity check failed",
+      }.fmt(f)
+  }
+}
+
 /// USART parity settings
 pub enum Parity {
     /// No parity

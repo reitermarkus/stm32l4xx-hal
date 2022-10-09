@@ -143,7 +143,7 @@ impl CSR {
 
     /// Clear system reset flags.
     pub fn clear_reset_flags(&mut self) {
-        self.csr().modify(|r, w| w.rmvf().set_bit());
+        self.csr().modify(|_, w| w.rmvf().set_bit());
     }
 }
 
@@ -1121,5 +1121,10 @@ impl Clocks {
     /// Returns the frequency for timers on APB2
     pub fn timclk2(&self) -> Hertz {
         self.timclk2
+    }
+
+    /// Frequency of the 48 MHz clock used for USB OTG FS, SDMMC and RNG.
+    pub fn pll48m1clk(&self) -> Option<Hertz> {
+        self.pll48m1clk
     }
 }

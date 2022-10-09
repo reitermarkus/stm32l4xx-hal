@@ -53,6 +53,7 @@ pub enum Event {
 }
 
 /// Configuration of a low power timer
+#[derive(Clone)]
 pub struct LowPowerTimerConfig {
     clock_source: ClockSource,
     prescaler: PreScaler,
@@ -296,6 +297,7 @@ macro_rules! hal {
                 self.lptim.cnt.read().bits() as u16
             }
 
+            #[inline(always)]
             pub fn count() -> u16 {
                 let lptim = unsafe { &*<$timer_type>::ptr() };
                 lptim.cnt.read().bits() as u16
@@ -308,10 +310,12 @@ macro_rules! hal {
                 self.lptim.arr.read().bits() as u16
             }
 
+            #[inline(always)]
             pub fn pause(&mut self) {
-                self.disable();
+              self.disable();
             }
 
+            #[inline(always)]
             pub fn resume(&mut self) {
                 self.enable();
                 self.start_continuous_mode();

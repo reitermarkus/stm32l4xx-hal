@@ -60,7 +60,7 @@ optional = true
 
 [dependencies.synopsys-usb-otg]
 version = "0.3.0"
-features = ["cortex-m", "fs"]
+features = ["fs"]
 optional = true
 
 [dependencies.time]

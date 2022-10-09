@@ -123,41 +123,60 @@ impl Pwr {
         LowPowerModeGuard { _0: () }
     }
 
+    /// Enter “Stop 0” low power mode.
+    pub fn stop0(&mut self, scb: &mut SCB) -> LowPowerModeGuard {
+      self.enter_low_power_mode(LowPowerMode::Stop0, scb)
+    }
+
+    /// Enter “Stop 1” low power mode.
+    pub fn stop1(&mut self, scb: &mut SCB) -> LowPowerModeGuard {
+      self.enter_low_power_mode(LowPowerMode::Stop1, scb)
+    }
+
     /// Enter “Stop 2” low power mode.
     pub fn stop2(&mut self, scb: &mut SCB) -> LowPowerModeGuard {
       self.enter_low_power_mode(LowPowerMode::Stop2, scb)
     }
 
-    /// Enters “Shutdown” low power mode.
-    pub fn shutdown(&mut self, wkup: &WakeUpSource, scb: &mut SCB) -> LowPowerModeGuard {
-        unsafe {
-            self.cr3.reg().modify(|_, w| w.bits(wkup.bit_range(0, 7)));
-        }
+    fn enter_shutdown_or_standby(&mut self, mode: LowPowerMode, wkup: &WakeUpSource, scb: &mut SCB) -> LowPowerModeGuard {
+      unsafe {
+        self.cr3.reg().modify(|_, w| w.bits(wkup.bit_range(0, 7)));
+      }
 
-        if wkup.internal_wkup() {
-            // Can't apply directly due to the APC and RPS bits
-            self.cr3.reg().modify(|_, w| w.ewf().set_bit())
-        }
-        self.scr.reg().write(|w| {
-            w.wuf1()
-                .set_bit()
-                .wuf2()
-                .set_bit()
-                .wuf3()
-                .set_bit()
-                .wuf4()
-                .set_bit()
-                .wuf5()
-                .set_bit()
-                .sbf()
-                .set_bit()
-        });
+      if wkup.internal_wkup() {
+          // Can't apply directly due to the APC and RPS bits
+          self.cr3.reg().modify(|_, w| w.ewf().set_bit())
+      }
+      self.scr.reg().write(|w| {
+          w.wuf1()
+              .set_bit()
+              .wuf2()
+              .set_bit()
+              .wuf3()
+              .set_bit()
+              .wuf4()
+              .set_bit()
+              .wuf5()
+              .set_bit()
+              .sbf()
+              .set_bit()
+      });
 
-        self.enter_low_power_mode(LowPowerMode::Shutdown, scb)
+      self.enter_low_power_mode(mode, scb)
     }
 
-    /// Returns the reason, why wakeup from shutdown happened. In case there is more then one,
-    /// a single random reason will be returned
+    /// Enters “Standby” low power mode.
+    pub fn standby(&mut self, wkup: &WakeUpSource, scb: &mut SCB) -> LowPowerModeGuard {
+      self.enter_shutdown_or_standby(LowPowerMode::Standby, wkup, scb)
+    }
+
+    /// Enters “Shutdown” low power mode.
+    pub fn shutdown(&mut self, wkup: &WakeUpSource, scb: &mut SCB) -> LowPowerModeGuard {
+      self.enter_shutdown_or_standby(LowPowerMode::Shutdown, wkup, scb)
+    }
+
+    /// Returns the reason, why wakeup from shutdown happened. In case there is more than one,
+    /// a single random reason will be returned.
     pub fn read_wakeup_reason(&mut self) -> WakeUpSource {
         WakeUpSource(self.sr1.reg().read().bits() as u16)
     }

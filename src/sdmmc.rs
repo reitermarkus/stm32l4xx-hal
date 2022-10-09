@@ -4,7 +4,6 @@
 
 use core::{
     fmt,
-    ops::{ControlFlow, Deref, DerefMut},
     ptr, slice,
     sync::atomic::{self, Ordering},
 };
