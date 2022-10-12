@@ -161,7 +161,7 @@ pub enum Error {
     /// Data block CRC check failed.
     DataCrc,
     /// Timeout in hardware.
-    Timeout,
+    Timeout(&'static str),
     /// Timeout in software.
     SoftwareTimeout(&'static str),
     /// Receive FIFO overrun.
@@ -178,7 +178,7 @@ impl fmt::Display for Error {
             Self::NoCard => "no card",
             Self::CommandCrc => "command CRC check failed",
             Self::DataCrc => "data block CRC check failed",
-            Self::Timeout => "timeout",
+            Self::Timeout(s) => s,
             Self::SoftwareTimeout(op) => return write!(f, "software timeout during {}", op),
             Self::RxOverrun => "receive FIFO overrun",
             Self::TxUnderrun => "transmit FIFO underrun",
@@ -197,7 +197,7 @@ macro_rules! sta_rx_tx_err {
         } else if $sta.dtimeout().bit() {
             clear_static_data_flags(&$sdmmc.icr);
 
-            Err(Error::Timeout)
+            Err(Error::Timeout("dtimeout"))
         } else {
             Ok($sta)
         }
@@ -784,7 +784,7 @@ impl Sdmmc {
     fn select_card(&self, rca: u16) -> Result<(), Error> {
         let r = self.cmd(common_cmd::select_card(rca));
         match (r, rca) {
-            (Err(Error::Timeout), 0) => Ok(()),
+            (Err(Error::Timeout(_)), 0) => Ok(()),
             (r, _) => r,
         }
     }
@@ -833,7 +833,7 @@ impl Sdmmc {
             }
 
             if sta.ctimeout().bit() {
-                res = Err(Error::Timeout);
+                res = Err(Error::Timeout("ctimeout"));
                 break;
             }
 
