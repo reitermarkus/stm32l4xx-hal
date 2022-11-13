@@ -476,7 +476,7 @@ macro_rules! impl_channel {
             #[inline]
             fn set_sample_time(&mut self, adc: &mut pac::$adc_type, sample_time: SampleTime) {
                 $(
-                    let sample_time = $min_sample_time;
+                    let sample_time = sample_time.max($min_sample_time);
                 )*
 
                 adc.$smpr.modify(|_, w| {

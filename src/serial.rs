@@ -467,6 +467,7 @@ macro_rules! hal {
                 }
 
                 /// Splits the `Serial` abstraction into a transmitter and a receiver half
+                #[inline]
                 pub fn split(self) -> (Tx<pac::$USARTX, PINS>, Rx<pac::$USARTX, PINS>) {
                     (
                         self.tx,
@@ -475,6 +476,7 @@ macro_rules! hal {
                 }
 
                 /// Frees the USART peripheral
+                #[inline]
                 pub fn release(self) -> (pac::$USARTX, PINS) {
                     (self.tx.usart, self.rx.pins)
                 }
@@ -483,6 +485,7 @@ macro_rules! hal {
             impl<PINS> serial::Read<u8> for Serial<pac::$USARTX, PINS> {
                 type Error = Error;
 
+                #[inline(always)]
                 fn read(&mut self) -> nb::Result<u8, Error> {
                     self.rx.read()
                 }
@@ -511,10 +514,12 @@ macro_rules! hal {
             impl<PINS> serial::Write<u8> for Serial<pac::$USARTX, PINS> {
                 type Error = Error;
 
+                #[inline(always)]
                 fn flush(&mut self) -> nb::Result<(), Error> {
                     self.tx.flush()
                 }
 
+                #[inline(always)]
                 fn write(&mut self, byte: u8) -> nb::Result<(), Error> {
                     self.tx.write(byte)
                 }
