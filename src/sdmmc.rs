@@ -328,49 +328,31 @@ enum SdCardVersion {
 
 /// An SDMMC controller.
 #[derive(Debug)]
-pub struct Sdmmc {
+pub struct Sdmmc<PINS> {
     sdmmc: SDMMC1,
+    pins: PINS,
     clock: Hertz,
     bus_width: BusWidth,
     card: Option<SdCard>,
 }
 
-impl Sdmmc {
-    pub fn new<PINS: Pins>(sdmmc: SDMMC1, _pins: PINS, apb2: &mut APB2, clocks: &Clocks) -> Self {
+impl<PINS: Pins> Sdmmc<PINS> {
+    pub fn new(sdmmc: SDMMC1, pins: PINS, apb2: &mut APB2, clocks: &Clocks) -> Self {
         SDMMC1::enable(apb2);
-        SDMMC1::reset(apb2);
-
-        let clock = clocks.sysclk();
-
-        sdmmc.clkcr.modify(|_, w| unsafe {
-            w.negedge()
-                .clear_bit() // Rising Edge
-                .bypass()
-                .clear_bit() // Disable bypass.
-                .pwrsav()
-                .clear_bit() // Disable power-save.
-                .widbus()
-                .bits(0) // Bus Width 1
-                .hwfc_en()
-                .clear_bit() // Disable hardware flow-control.
-                .clkdiv()
-                .bits(ClockFreq::Freq400KHz as u8) // Clock must be <= 400 kHz while in identification mode.
-                .clken()
-                .clear_bit() // Disable clock.
-        });
 
         let mut host = Self {
             sdmmc,
-            clock,
+            pins,
+            clock: clocks.sysclk(),
             bus_width: PINS::BUS_WIDTH,
             card: None,
         };
-
-        host.power_card(false);
-
+        // Ensure the new SD card is uninitialized.
+        host.deinit(apb2);
         host
     }
 
+    /// Initialize the SD card with the given frequency.
     #[inline]
     pub fn init(&mut self, freq: ClockFreq) -> Result<(), Error> {
         self.power_card(true);
@@ -452,6 +434,38 @@ impl Sdmmc {
         self.set_bus(self.bus_width, freq)?;
 
         Ok(())
+    }
+
+    /// De-initialize the SD card.
+    pub fn deinit(&mut self, apb2: &mut APB2) {
+        SDMMC1::reset(apb2);
+
+        self.sdmmc.clkcr.modify(|_, w| unsafe {
+          w.negedge()
+              .clear_bit() // Rising Edge
+              .bypass()
+              .clear_bit() // Disable bypass.
+              .pwrsav()
+              .clear_bit() // Disable power-save.
+              .widbus()
+              .bits(0) // Bus Width 1
+              .hwfc_en()
+              .clear_bit() // Disable hardware flow-control.
+              .clkdiv()
+              .bits(ClockFreq::Freq400KHz as u8) // Clock must be <= 400 kHz while in identification mode.
+              .clken()
+              .clear_bit() // Disable clock.
+        });
+
+        self.power_card(false);
+        self.card = None;
+    }
+
+    /// De-initialize and split the `Sdmmc` into its `SDMMC1` part and the corresponding pins.
+    pub fn split(mut self, apb2: &mut APB2) -> (SDMMC1, PINS) {
+        self.deinit(apb2);
+        SDMMC1::disable(apb2);
+        (self.sdmmc, self.pins)
     }
 
     #[inline]
@@ -860,7 +874,7 @@ impl Sdmmc {
     }
 
     /// Create an [`SdmmcBlockDevice`], which implements the [`BlockDevice`](embedded-sdmmc::BlockDevice) trait.
-    pub fn into_block_device(self) -> SdmmcBlockDevice<Sdmmc> {
+    pub fn into_block_device(self) -> SdmmcBlockDevice<Self> {
         SdmmcBlockDevice {
             sdmmc: core::cell::RefCell::new(self),
         }
@@ -898,14 +912,14 @@ impl DataBlock {
 }
 
 #[derive(Debug)]
-pub struct SdmmcDma {
-    sdmmc: Sdmmc,
+pub struct SdmmcDma<PINS> {
+    sdmmc: Sdmmc<PINS>,
     channel: dma2::C5,
 }
 
-impl SdmmcDma {
+impl<PINS: Pins> SdmmcDma<PINS> {
     #[inline]
-    pub fn new(sdmmc: Sdmmc, mut channel: dma2::C5) -> Self {
+    pub fn new(sdmmc: Sdmmc<PINS>, mut channel: dma2::C5) -> Self {
         channel.set_peripheral_address(sdmmc.sdmmc.fifo.as_ptr() as u32, false);
         channel.set_request_line(DmaInput::SdMmc1).unwrap();
         channel.ccr().modify(|_, w| {
@@ -1041,8 +1055,9 @@ impl SdmmcDma {
         Err(Error::SoftwareTimeout("write_blocks"))
     }
 
+    /// Split the `SdmmcDma` instance into the contained `Sdmmc` and DMA channel.
     #[inline]
-    pub fn split(self) -> (Sdmmc, dma2::C5) {
+    pub fn split(self) -> (Sdmmc<PINS>, dma2::C5) {
         (self.sdmmc, self.channel)
     }
 
@@ -1059,7 +1074,7 @@ pub struct SdmmcBlockDevice<SDMMC> {
 }
 
 #[cfg(feature = "embedded-sdmmc")]
-impl embedded_sdmmc::BlockDevice for SdmmcBlockDevice<Sdmmc> {
+impl<PINS: Pins> embedded_sdmmc::BlockDevice for SdmmcBlockDevice<Sdmmc<PINS>> {
     type Error = Error;
 
     fn read(
@@ -1175,6 +1190,10 @@ impl<SDMMC> FatFsCursor<SDMMC> {
     pub fn sdmmc_mut(&mut self) -> &mut SDMMC {
         &mut self.sdmmc
     }
+
+    pub fn release(self) -> SDMMC {
+      self.sdmmc
+    }
 }
 
 pub trait SdmmcIo {
@@ -1182,7 +1201,7 @@ pub trait SdmmcIo {
     fn write_block(&mut self, addr: u32, block: &DataBlock) -> Result<(), Error>;
 }
 
-impl SdmmcIo for Sdmmc {
+impl<PINS: Pins> SdmmcIo for Sdmmc<PINS> {
     #[inline(always)]
     fn read_block(&mut self, addr: u32, block: &mut DataBlock) -> Result<(), Error> {
         Self::read_block(self, addr, block)
@@ -1194,7 +1213,7 @@ impl SdmmcIo for Sdmmc {
     }
 }
 
-impl SdmmcIo for SdmmcDma {
+impl<PINS: Pins> SdmmcIo for SdmmcDma<PINS> {
     #[inline(always)]
     fn read_block(&mut self, addr: u32, block: &mut DataBlock) -> Result<(), Error> {
         Self::read_block(self, addr, block)
@@ -1256,9 +1275,9 @@ where
 }
 
 #[cfg(feature = "fatfs")]
-impl<'sdmmc> IntoStorage<FatFsCursor<&'sdmmc mut Sdmmc>> for &'sdmmc mut Sdmmc {
+impl<'sdmmc, PINS: Pins> IntoStorage<FatFsCursor<&'sdmmc mut Sdmmc<PINS>>> for &'sdmmc mut Sdmmc<PINS> {
     #[inline]
-    fn into_storage(self) -> FatFsCursor<&'sdmmc mut Sdmmc> {
+    fn into_storage(self) -> FatFsCursor<&'sdmmc mut Sdmmc<PINS>> {
         FatFsCursor::new(self)
     }
 }
