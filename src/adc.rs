@@ -729,6 +729,9 @@ macro_rules! adc {
                 #[inline]
                 pub fn enable(&mut self) {
                     if !self.is_enabled() {
+                        // Enable internal voltage regulator.
+                        self.adc.cr.modify(|_, w| w.advregen().set_bit());
+
                         // Make sure bits are off
                         while self.adc.cr.read().addis().bit_is_set() {}
 
@@ -749,7 +752,27 @@ macro_rules! adc {
                 /// Disable the ADC.
                 #[inline]
                 pub fn disable(&mut self) {
-                    self.adc.cr.modify(|_, w| w.addis().set_bit());
+                    if self.is_enabled() {
+                      // Wait for ongoing conversion, if any.
+                      loop {
+                        let cr = self.adc.cr.read();
+                        if cr.adstart().bit_is_clear() && cr.jadstart().bit_is_clear() {
+                          break
+                        }
+                      }
+
+                      // Disable ADC.
+                      self.adc.cr.modify(|_, w| w.addis().set_bit());
+                      loop {
+                        let cr = self.adc.cr.read();
+                        if cr.aden().bit_is_clear() && cr.addis().bit_is_clear() {
+                          break
+                        }
+                      }
+
+                      // Disable internal voltage regulator to save power while disabled.
+                      self.adc.cr.modify(|_, w| w.advregen().clear_bit());
+                    }
                 }
 
                 /// Returns the current sample stored in the ADC data register.
