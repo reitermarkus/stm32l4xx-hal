@@ -495,6 +495,7 @@ impl CFGR {
             // Wait until MSI is running
             while rcc.cr.read().msirdy().bit_is_clear() {}
         }
+
         if rcc.cfgr.read().sws().bits() != 0 {
             // Set MSI as a clock source, reset prescalers.
             rcc.cfgr.reset();
@@ -506,7 +507,7 @@ impl CFGR {
         // 1. Setup clocks
         //
 
-        // Turn on the internal 32 kHz LSI oscillator
+        // Turn on the internal 32 kHz LSI oscillator.
         let lsi_used = match (self.lsi, &self.lse) {
             (true, _)
             | (
@@ -518,7 +519,7 @@ impl CFGR {
             ) => {
                 rcc.csr.modify(|_, w| w.lsion().set_bit());
 
-                // Wait until LSI is running
+                // Wait until LSI is running.
                 while rcc.csr.read().lsirdy().bit_is_clear() {}
 
                 true
@@ -677,9 +678,13 @@ impl CFGR {
         };
 
         let stop_wakeup_clock_source = self.stop_wakeup_clock_source.unwrap_or_default();
-
-        if stop_wakeup_clock_source == StopWakeupClockSource::Hsi {
-          rcc.cfgr.modify(|_, w| w.stopwuck().set_bit())
+        match stop_wakeup_clock_source {
+          StopWakeupClockSource::Msi => {
+            rcc.cfgr.modify(|_, w| w.stopwuck().clear_bit());
+          },
+          StopWakeupClockSource::Hsi => {
+            rcc.cfgr.modify(|_, w| w.stopwuck().set_bit());
+          },
         }
 
         // Check if HSI should be started
