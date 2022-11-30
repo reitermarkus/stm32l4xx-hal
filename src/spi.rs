@@ -94,7 +94,7 @@ macro_rules! hal {
                     mode: Mode,
                     freq: Hertz,
                     clocks: Clocks,
-                    apb2: &mut <$SPIX as RccBus>::Bus,
+                    bus: &mut <$SPIX as RccBus>::Bus,
                 ) -> Self
                 where
                     SCK: SckPin<$SPIX>,
@@ -102,8 +102,8 @@ macro_rules! hal {
                     MOSI: MosiPin<$SPIX>,
                 {
                     // enable or reset $SPIX
-                    <$SPIX>::enable(apb2);
-                    <$SPIX>::reset(apb2);
+                    <$SPIX>::enable(bus);
+                    <$SPIX>::reset(bus);
 
                     // FRXTH: RXNE event is generated if the FIFO level is greater than or equal to
                     //        8-bit
@@ -152,15 +152,15 @@ macro_rules! hal {
                     Spi { spi, pins }
                 }
 
-                pub fn $spiX_slave(spi: $SPIX, pins: (SCK, MISO, MOSI), mode: Mode, apb2: &mut <$SPIX as RccBus>::Bus) -> Self
+                pub fn $spiX_slave(spi: $SPIX, pins: (SCK, MISO, MOSI), mode: Mode, bus: &mut <$SPIX as RccBus>::Bus) -> Self
                 where
                     SCK: SckPin<$SPIX>,
                     MISO: MisoPin<$SPIX>,
                     MOSI: MosiPin<$SPIX>,
                 {
                     // enable or reset $SPIX
-                    <$SPIX>::enable(apb2);
-                    <$SPIX>::reset(apb2);
+                    <$SPIX>::enable(bus);
+                    <$SPIX>::reset(bus);
 
                     // CPOL: polarity
                     // CPHA: phase
