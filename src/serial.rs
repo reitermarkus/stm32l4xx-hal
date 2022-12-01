@@ -391,6 +391,14 @@ macro_rules! hal {
                     }
                 }
 
+                pub fn disable(&mut self) {
+                  self.usart().cr1.modify(|_, w| {
+                    w.ue().clear_bit()
+                    .re().clear_bit()
+                    .te().clear_bit()
+                  });
+                }
+
                 #[inline]
                 fn usart(&self) -> &pac::$USARTX {
                     &self.tx.usart
