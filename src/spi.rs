@@ -789,6 +789,22 @@ macro_rules! spi_dma {
                 dma::Transfer::rw(buffer, self)
             }
         }
+
+        impl<PINS> FullDuplex<u8> for SpiRxTxDma<$SPIX, PINS, $RX_CH, $TX_CH> {
+            type Error = Error;
+
+            fn read(&mut self) -> nb::Result<u8, Error> {
+                FullDuplex::read(&mut self.payload.spi)
+            }
+
+            fn send(&mut self, byte: u8) -> nb::Result<(), Error> {
+                FullDuplex::send(&mut self.payload.spi, byte)
+            }
+        }
+
+        impl<PINS> crate::hal::blocking::spi::transfer::Default<u8> for SpiRxTxDma<$SPIX, PINS, $RX_CH, $TX_CH> {}
+
+        impl<PINS> crate::hal::blocking::spi::write::Default<u8> for SpiRxTxDma<$SPIX, PINS, $RX_CH, $TX_CH> {}
     };
 }
 
